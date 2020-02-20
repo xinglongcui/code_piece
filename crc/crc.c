@@ -4,15 +4,16 @@
 // verify crc code through https://crccalc.com/
 #define MAX_DATA_BYTE_LEN 256
 #define CRC_PARARREL_BYTE_LEN 2 
-#define MAX_CRC_PARARREL_BLOCK_NUM 8
+#define MAX_CRC_PARARREL_BLOCK_NUM (MAX_DATA_BYTE_LEN / CRC_PARARREL_BYTE_LEN)
 #define uint8_t unsigned char
 #define uint32_t unsigned int
 //#define POLY 0x07 // x^8 + x^2 + x + 1    
 //#define INIT 0x00 // x^8 + x^2 + x + 1    
+
 #define POLY 0x9B // x^8 + x^7 + x^4 + x^3 + x + 1    
 #define INIT 0xFF // x^8 + x^7 + x^4 + x^3 + x + 1    
 #define CRC_LEN 8
-    
+
 static uint8_t M[8][8] = { { 0 } };
 uint8_t _crc8_calc_8bit (uint8_t crc_in, uint8_t data_in) {
     uint8_t   i;
@@ -37,7 +38,6 @@ uint8_t _crc8_calc_8bit (uint8_t crc_in, uint8_t data_in) {
 
 uint8_t crc8_calc_standard(uint8_t crc_default, uint8_t *data_input, uint32_t data_byte_len) {
     uint8_t crc = crc_default;
-    printf("calc str = %s\n", data_input);
     for (int i = 0; i < data_byte_len; i++) {
         crc = _crc8_calc_8bit(crc, data_input[i]);
     }
@@ -54,8 +54,8 @@ int crc8_vec_init(int data_pararrel_byte_length) {
         }
     }
 
-    // build 
-    for ( int l = 1; l < data_pararrel_bit_length; l++  ) {
+    // build
+    for ( int l = 1; l <= data_pararrel_bit_length; l++  ) {
         for ( int k = 0; k < 8; k++ ) {
             uint8_t sign = M[7][k]; 
             M[7][k] = M[6][k] ^ sign;
@@ -67,10 +67,9 @@ int crc8_vec_init(int data_pararrel_byte_length) {
             M[1][k] = M[0][k] ^ sign;
             M[0][k] = sign;
         }
-    }
+    } 
 
-    //dump
-    printf("vec[i][k]:\n");
+    printf("M[i][k]:\n");
     printf("| |7|6|5|4|3|2|1|0|\n");
     for ( int i = 7; i >= 0; i-- ) {
         printf("|%d|", i);
@@ -80,106 +79,73 @@ int crc8_vec_init(int data_pararrel_byte_length) {
         printf("\n");
     }
 
+
 }
 
 uint8_t crc8_calc_parallel (uint8_t crc_default, uint8_t *data_input, uint8_t data_byte_len) {
     uint8_t parrallel_block_num = data_byte_len / CRC_PARARREL_BYTE_LEN;
-    uint8_t crc_pararrel_result[8] ;
+    uint8_t crc_pararrel_result[MAX_CRC_PARARREL_BLOCK_NUM] ;
     uint8_t *data_in;
     uint8_t b = 0;
     uint8_t a = 0;
     uint8_t A[8] = { 0 };
     uint8_t B[8] = { 0 };
+    uint32_t byte_calc = 0;
+    uint32_t data_in_len = 0;
+    uint32_t pararrel_index = 0;
 
-    if ( ( data_byte_len % CRC_PARARREL_BYTE_LEN ) != 0 ) {
-        printf("FATAL ERROR: could not use crc pararrel mode: data_len=%d, pararrel_len=%d\n", data_byte_len, CRC_PARARREL_BYTE_LEN);
+    if ( 0 != ( data_byte_len % CRC_PARARREL_BYTE_LEN ) ) {
+        printf("[WARNING] data_byte_len[%d] MOD data_pararrel_len[%d] != 0\n", data_byte_len, CRC_PARARREL_BYTE_LEN);
         return 0;
     }
 
+    printf("data_byte_len = %d, parrallel_block_num = %d\n", data_byte_len, parrallel_block_num);
     if ( parrallel_block_num > MAX_CRC_PARARREL_BLOCK_NUM ) {
-        printf("FATAL ERROR: could not use crc pararrel mode: block_bum_needed=%d, block_bum_max=%d\n", parrallel_block_num, MAX_CRC_PARARREL_BLOCK_NUM);
+        printf("FATAL ERROR: block_bum_needed(%d) > block_bum_max=(%d)\n", parrallel_block_num, MAX_CRC_PARARREL_BLOCK_NUM);
         return 0;
     }
 
-    for (int j = 0; j < parrallel_block_num; j++) {
-        crc_default = (j == 0) ? crc_default : 0;
-        data_in = data_input + CRC_PARARREL_BYTE_LEN * j;
-        crc_pararrel_result[j] = crc8_calc_standard(crc_default, data_in, CRC_PARARREL_BYTE_LEN); 
+    while ( byte_calc < data_byte_len ) {
+        crc_default = ( 0 == byte_calc ) ? crc_default : 0;
+        data_in = data_input + byte_calc;
+        if ( data_byte_len - byte_calc > CRC_PARARREL_BYTE_LEN ) {
+            data_in_len = CRC_PARARREL_BYTE_LEN;
+        } else {
+            data_in_len = data_byte_len - byte_calc;
+        }
+        crc_pararrel_result[pararrel_index] = crc8_calc_standard(crc_default, data_in, data_in_len); 
+        byte_calc += data_in_len; 
+        pararrel_index++;
     }
 
-  
-   //vec[i]{7..0} = (( vec[i][7] << 7 ) & 0x80 ) | ((vec[i][6] << 6) & 0x40) | ... | ((vec[i][0] << 0) &0x1); 
-   //assgin C[8] = vec[i]{7..0};
-   //j = 1
-   //A = crc_pararrel_result[0];
-   //loop: 
-   //B[i] = A ^ C[i] for i = {7..0};
-   //B = ((B[7] << 7) & 0x80) | ((B[6] << 6)&0x40) | ... | ((B[0] << 0)&0x1);
-   //A = B ^ crc_pararrel_result[j]
-   //j++
-   //goto loop
-  
-   // build C[8]
-    //for ( int i = 0; i < CRC_LEN; i++) {
-    //    for ( int k = 0; k < CRC_LEN; k++) {
-    //        M[i] = (( vec[i][k] << k ) & (1<<k) ) | M[i];
-    //    }
-    //}
-
-    //for ( int i = 0; i < CRC_LEN; i++) {
-    //    printf("M[%d]=%d\n", i, M[i]);
-    //}
-
-    for (int j = 0; j < parrallel_block_num; j++) {
-        printf("crc_pararrel_result[%d]=0x%x\n", j, crc_pararrel_result[j]);
-    }
     b = 0;// b of first block is 0
     for (int j = 0; j < parrallel_block_num; j++) {
         a = crc_pararrel_result[j] ^ b;
         for ( int k = 0; k < CRC_LEN; k++) {
             A[k] = (a>>k) & 0x1;
         }
-        printf("0x%x=8'b", a);
-        for ( int k = 0; k < CRC_LEN; k++) {
-            printf("%d", A[7-k]);
-        }
-        printf("\n");
         for ( int i = 0; i < CRC_LEN; i++) {
-//            B[i] = a ^ M[i];
-
-//            B[i] = ( a * M[i] ) % 2;
-
-//            B[i] = 0;
-//            for ( int k = 0; k < CRC_LEN; k++) {
-//                B[i] = ( (a&(1<<k)) * vec[i][k] ) + B[i];
-//            }
-//            B[i] = B[i] % 2;
-
-
             B[i] = 0;
             for ( int k = 0; k < CRC_LEN; k++) {
-                //B[i] = ( ((a>>k)&0x1) * M[i][k] ) + B[i];
-                //B[i] = ( a * M[i][k] ) + B[i];
                 B[i] = ( A[k] * M[i][k] ) + B[i];
             }
             B[i] = B[i] % 2;
         }
         b = 0;
-        printf("8'b");
         for ( int i = 0; i < CRC_LEN; i++) {
-            printf("%d", B[7-i]);
             b = (( B[i] << i ) & (1<<i) ) | b;
         }
-        printf("=0x%x\n", b);
     }
     return a;
 }
 int main() {
     unsigned char data[MAX_DATA_BYTE_LEN] = { 0 };
     unsigned char crc = INIT;
+    uint32_t crc_standard = 0;
+    uint32_t crc_pararrel = 0;
     int byte_length = 256;
 
-//    crc8_vec_init(CRC_PARARREL_BYTE_LEN);
+    crc8_vec_init(CRC_PARARREL_BYTE_LEN);
 
     printf ("verify crc code through https://crccalc.com/\n");
     printf("input data(exit for terminate):");
@@ -187,14 +153,23 @@ int main() {
     while ( strcmp(data, "exit") != 0 ) {
         crc = INIT;
         byte_length = strlen(data);
-        crc = crc8_calc_standard(crc, data, byte_length);
-        printf("data = %s, crc8 = 0x%x\n\n", data, crc);
-        
-//        crc = INIT;
-//        byte_length = strlen(data);
-//        crc = crc8_calc_parallel(crc, data, byte_length);
-//        printf("data = %s, crc8 = 0x%x\n\n", data, crc);
-        
+        crc_standard = crc8_calc_standard(crc, data, byte_length);
+        printf("data = %s, standard_crc8 = 0x%x\n", data, crc_standard);
+
+        crc = INIT;
+        byte_length = strlen(data);
+        if ( 0 == ( byte_length % CRC_PARARREL_BYTE_LEN ) ) {
+            crc_pararrel = crc8_calc_parallel(crc, data, byte_length);
+            printf("data = %s, pararrel_crc8 = 0x%x\n", data, crc_pararrel);
+            if ( crc_standard == crc_pararrel ) {
+                printf("[INFO] crc check pass\n");
+            } else {
+                printf("[ERROR] crc check fail\n");
+            }
+        } else {
+            printf("[WARNING]: data_byte_len[%d] Mod data_pararrel_len[%d] != 0\n", byte_length, CRC_PARARREL_BYTE_LEN);
+        }
+        printf("\n"); 
         printf("input data(exit for terminate):");
         scanf("%s", data);
     }
