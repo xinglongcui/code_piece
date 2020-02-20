@@ -10,7 +10,7 @@
 //#define POLY 0x07 // x^8 + x^2 + x + 1    
 //#define INIT 0x00 // x^8 + x^2 + x + 1    
 #define POLY 0x9B // x^8 + x^7 + x^4 + x^3 + x + 1    
-#define INIT 0x00 // x^8 + x^7 + x^4 + x^3 + x + 1    
+#define INIT 0xFF // x^8 + x^7 + x^4 + x^3 + x + 1    
 #define CRC_LEN 8
     
 static uint8_t M[8][8] = { { 0 } };
@@ -66,14 +66,6 @@ int crc8_vec_init(int data_pararrel_byte_length) {
             M[2][k] = M[1][k];
             M[1][k] = M[0][k] ^ sign;
             M[0][k] = sign;
-//            M[0][k] = M[7][k];
-//            M[1][k] = M[7][k] ^ M[0][k];
-//            M[2][k] = M[1][k];
-//            M[3][k] = M[7][k] ^ M[2][k];
-//            M[4][k] = M[7][k] ^ M[3][k];
-//            M[5][k] = M[4][k];
-//            M[6][k] = M[5][k];
-//            M[7][k] = M[7][k] ^ M[6][k];
         }
     }
 
@@ -98,7 +90,6 @@ uint8_t crc8_calc_parallel (uint8_t crc_default, uint8_t *data_input, uint8_t da
     uint8_t a = 0;
     uint8_t A[8] = { 0 };
     uint8_t B[8] = { 0 };
-    //uint8_t M[8] = { 0 };
 
     if ( ( data_byte_len % CRC_PARARREL_BYTE_LEN ) != 0 ) {
         printf("FATAL ERROR: could not use crc pararrel mode: data_len=%d, pararrel_len=%d\n", data_byte_len, CRC_PARARREL_BYTE_LEN);
@@ -188,8 +179,9 @@ int main() {
     unsigned char crc = INIT;
     int byte_length = 256;
 
-    crc8_vec_init(CRC_PARARREL_BYTE_LEN);
+//    crc8_vec_init(CRC_PARARREL_BYTE_LEN);
 
+    printf ("verify crc code through https://crccalc.com/\n");
     printf("input data(exit for terminate):");
     scanf("%s", data);
     while ( strcmp(data, "exit") != 0 ) {
@@ -198,10 +190,10 @@ int main() {
         crc = crc8_calc_standard(crc, data, byte_length);
         printf("data = %s, crc8 = 0x%x\n\n", data, crc);
         
-        crc = INIT;
-        byte_length = strlen(data);
-        crc = crc8_calc_parallel(crc, data, byte_length);
-        printf("data = %s, crc8 = 0x%x\n\n", data, crc);
+//        crc = INIT;
+//        byte_length = strlen(data);
+//        crc = crc8_calc_parallel(crc, data, byte_length);
+//        printf("data = %s, crc8 = 0x%x\n\n", data, crc);
         
         printf("input data(exit for terminate):");
         scanf("%s", data);
