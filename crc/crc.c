@@ -127,9 +127,8 @@ uint8_t crc8_calc_parallel (uint8_t crc_default, uint8_t *data_input, uint8_t da
         for ( int i = 0; i < CRC_LEN; i++) {
             B[i] = 0;
             for ( int k = 0; k < CRC_LEN; k++) {
-                B[i] = ( A[k] * M[i][k] ) + B[i];
+                B[i] = ( A[k] & M[i][k] ) ^ B[i];
             }
-            B[i] = B[i] % 2;
         }
         b = 0;
         for ( int i = 0; i < CRC_LEN; i++) {
