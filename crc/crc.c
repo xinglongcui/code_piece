@@ -1,18 +1,19 @@
 #include <stdio.h>
 #include <string.h>
 
-// verify crc code through https://crccalc.com/
-#define MAX_DATA_BYTE_LEN 256
-#define CRC_PARARREL_BYTE_LEN 2 
-#define MAX_CRC_PARARREL_BLOCK_NUM (MAX_DATA_BYTE_LEN / CRC_PARARREL_BYTE_LEN)
 #define uint8_t unsigned char
 #define uint32_t unsigned int
-//#define POLY 0x07 // x^8 + x^2 + x + 1    
-//#define INIT 0x00 // x^8 + x^2 + x + 1    
 
-#define POLY 0x9B // x^8 + x^7 + x^4 + x^3 + x + 1    
-#define INIT 0xFF // x^8 + x^7 + x^4 + x^3 + x + 1    
+// verify crc code through https://crccalc.com/
+#define MAX_DATA_BYTE_LEN 256
+#define CRC_PARARREL_BYTE_LEN 4 
+#define MAX_CRC_PARARREL_BLOCK_NUM (MAX_DATA_BYTE_LEN / CRC_PARARREL_BYTE_LEN)
+
 #define CRC_LEN 8
+#define POLY 0x07 // x^8 + x^2 + x + 1    
+#define INIT 0x00 // x^8 + x^2 + x + 1    
+//#define POLY 0x9B // x^8 + x^7 + x^4 + x^3 + x + 1    
+//#define INIT 0xFF // x^8 + x^7 + x^4 + x^3 + x + 1    
 
 static uint8_t M[8][8] = { { 0 } };
 uint8_t _crc8_calc_8bit (uint8_t crc_in, uint8_t data_in) {
@@ -58,13 +59,13 @@ int crc8_vec_init(int data_pararrel_byte_length) {
     for ( int l = 1; l <= data_pararrel_bit_length; l++  ) {
         for ( int k = 0; k < 8; k++ ) {
             uint8_t sign = M[7][k]; 
-            M[7][k] = M[6][k] ^ sign;
-            M[6][k] = M[5][k];
-            M[5][k] = M[4][k];
-            M[4][k] = M[3][k] ^ sign;
-            M[3][k] = M[2][k] ^ sign;
-            M[2][k] = M[1][k];
-            M[1][k] = M[0][k] ^ sign;
+            M[7][k] = (POLY&0x80) ? ( M[6][k] ^ sign ) : M[6][k];
+            M[6][k] = (POLY&0x40) ? ( M[5][k] ^ sign ) : M[5][k];
+            M[5][k] = (POLY&0x20) ? ( M[4][k] ^ sign ) : M[4][k];
+            M[4][k] = (POLY&0x10) ? ( M[3][k] ^ sign ) : M[3][k];
+            M[3][k] = (POLY&0x08) ? ( M[2][k] ^ sign ) : M[2][k];
+            M[2][k] = (POLY&0x04) ? ( M[1][k] ^ sign ) : M[1][k];
+            M[1][k] = (POLY&0x02) ? ( M[0][k] ^ sign ) : M[0][k];
             M[0][k] = sign;
         }
     } 
